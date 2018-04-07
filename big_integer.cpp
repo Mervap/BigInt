@@ -1,6 +1,7 @@
 #include "big_integer.h"
 #include <algorithm>
 #include <stdexcept>
+#include <iostream>
 
 typedef unsigned int ui;
 typedef unsigned long long ull;
@@ -283,13 +284,22 @@ big_integer operator*(big_integer const &a, big_integer const &b) {
     return res;
 }
 
-ull get_trial(const ull a, const ull b, const ull c) {
-    ui128 res = a;
-    res = ((res << BASE) + b) / c;
-    if (res > MAX_DIGIT) {
-        res = MAX_DIGIT;
+bool compare_equal_vectors(vector<ull> const &a, vector<ull> const &b) {
+    for (size_t i = a.size(); i > 0; --i) {
+        if (a[i - 1] != b[i - 1]) {
+            return a[i - 1] < b[i - 1];
+        }
     }
-    return ull_cast(res);
+    return 0;
+}
+
+bool compare_not_equal_vectors(vector<ull> const &a, vector<ull> const &b) {
+    for (size_t i = a.size(); i > 0; --i) {
+        if (a[i - 1] != b[i - 1]) {
+            return a[i - 1] < b[i - 1];
+        }
+    }
+    return 1;
 }
 
 void mul_big_small(vector<ull> &res, vector<ull> const &a, const ull b) {
@@ -305,6 +315,27 @@ void mul_big_small(vector<ull> &res, vector<ull> const &a, const ull b) {
     res[n] = ull_cast(carry);
 }
 
+ull get_trial(const ull a1, const ull a2, const ull a3, const ull b1, const ull b2) {
+    vector<ull> a = {ull_cast(a3), ull_cast(a2), ull_cast(a1)};
+    vector<ull> b = {ull_cast(b2), ull_cast(b1)};
+    vector<ull> ans;
+
+    ui128 l = 0;
+    ui128 r = (ui128) UINT64_MAX + 1;
+
+    while (r - l > 1) {
+        ui128 m = (r + l) / 2;
+        mul_big_small(ans, b, m);
+        if (compare_not_equal_vectors(ans, a)) {
+            l = m;
+        } else {
+            r = m;
+        }
+    }
+
+    return ull_cast(l);
+}
+
 void sub_equal_vectors(vector<ull> &a, vector<ull> const &b) {
     ui128 sum = __int128_cast(~b[0]) + __int128_cast(a[0]) + 1;
     ui128 carry = sum >> BASE;
@@ -314,15 +345,6 @@ void sub_equal_vectors(vector<ull> &a, vector<ull> const &b) {
         a[i] = ull_cast(sum);
         carry = sum >> BASE;
     }
-}
-
-bool compare_equal_vectors(vector<ull> const &a, vector<ull> const &b) {
-    for (size_t i = a.size(); i > 0; --i) {
-        if (a[i - 1] != b[i - 1]) {
-            return a[i - 1] < b[i - 1];
-        }
-    }
-    return 0;
 }
 
 big_integer operator/(big_integer const &a, big_integer const &b) {
@@ -344,17 +366,33 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
     abs_b.make_fit();
 
     const size_t len = n - m + 1;
-    const ull divisor = abs_b.data.back();
+    vector<ull> divisor(2);
+
+    if (m == 1) {
+        divisor[0] = abs_b.get_digit(m - 1);
+        divisor[1] = abs_b.get_digit(m);
+    } else {
+        divisor[0] = abs_b.get_digit(m - 2);
+        divisor[1] = abs_b.get_digit(m - 1);
+    }
+
     vector<ull> tmp(len);
-    vector<ull> dev(m + 1);
-    vector<ull> div(m + 1, 0);
+    vector<ull> dev(m + 2);
+    vector<ull> div(m + 2, 0);
     for (size_t i = 0; i <= m; ++i) {
         dev[i] = abs_a.get_digit(n + i - m);
     }
 
+    abs_b.data.push_back(0);
     for (size_t i = 0; i < len; ++i) {
         dev[0] = abs_a.get_digit(n - m - i);
-        ull qt = get_trial(dev[m], dev[m - 1], divisor);
+        ull qt;
+        if (m == 1) {
+            qt = get_trial(0, dev[m], dev[m - 1], divisor[1], divisor[0]);
+        } else {
+            qt = get_trial(dev[m], dev[m - 1], dev[m - 2], divisor[1], divisor[0]);
+        }
+
         mul_big_small(div, abs_b.data, qt);
         while ((qt >= 0) && compare_equal_vectors(dev, div)) {
             mul_big_small(div, abs_b.data, --qt);

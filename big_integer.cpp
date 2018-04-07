@@ -5,7 +5,7 @@
 
 typedef unsigned int ui;
 typedef unsigned long long ull;
-typedef unsigned __int128 ui128;
+__extension__ typedef unsigned __int128 ui128;
 using std::vector;
 
 const ull MAX_DIGIT = UINT64_MAX;
@@ -394,8 +394,8 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
         }
 
         mul_big_small(div, abs_b.data, qt);
-        while ((qt >= 0) && compare_equal_vectors(dev, div)) {
-            mul_big_small(div, abs_b.data, --qt);
+        if ((qt >= 0) && compare_equal_vectors(dev, div)) {
+            --qt;
         }
         sub_equal_vectors(dev, div);
         for (size_t j = m; j > 0; --j) {

@@ -13,8 +13,8 @@ struct big_integer
     big_integer();
     big_integer(big_integer const &other);
     big_integer(int a);
-    big_integer(ui a);
-    big_integer(bool new_sign, vector<ui> const &new_data);
+    big_integer(ull a);
+    big_integer(bool new_sign, vector<ull> const &new_data);
     explicit big_integer(std::string const &str);
 
     big_integer& operator=(big_integer const &other);
@@ -30,8 +30,8 @@ struct big_integer
     big_integer& operator|=(big_integer const &a);
     big_integer& operator^=(big_integer const &a);
 
-    big_integer& operator<<=(ui rhs);
-    big_integer& operator>>=(ui rhs);
+    big_integer& operator<<=(ui a);
+    big_integer& operator>>=(ui a);
 
     big_integer operator+() const;
     big_integer operator-() const;
@@ -59,18 +59,18 @@ struct big_integer
     friend big_integer operator&(big_integer const &a, big_integer const &b);
     friend big_integer operator|(big_integer const &a, big_integer const &b);
     friend big_integer operator^(big_integer const &a, big_integer const &b);
-    friend big_integer operator<<(big_integer const &a, ui b);
-    friend big_integer operator>>(big_integer const &a, ui b);
+    friend big_integer operator<<(big_integer const &a, ull b);
+    friend big_integer operator>>(big_integer const &a, ull b);
 
     friend std::string to_string(big_integer const &a);
     void swap(big_integer &other) noexcept;
     bool is_zero() const;
 private:
     bool sign;
-    vector<ui> data;
+    vector<ull> data;
 
     size_t length() const;
-    ui get_digit(size_t ind) const;
+    ull get_digit(size_t ind) const;
     void make_fit();
     void correct();
 };

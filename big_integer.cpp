@@ -4,20 +4,21 @@
 
 typedef unsigned int ui;
 typedef unsigned long long ull;
+typedef unsigned __int128 ui128;
 using std::vector;
 
-const ui MAX_DIGIT = UINT32_MAX;
-const ui BASE = 32;
-const int BASE_10 = 1000000000;
-
-template<typename T>
-ui ui_cast(T x) {
-    return static_cast<ui>(x & MAX_DIGIT);
-}
+const ull MAX_DIGIT = UINT64_MAX;
+const ull BASE = 64;
+const unsigned long long BASE_10 = 1000000000000000000;
 
 template<typename T>
 ull ull_cast(T x) {
     return static_cast<ull>(x);
+}
+
+template<typename T>
+ui128 __int128_cast(T x) {
+    return static_cast<ui128>(x);
 }
 
 bool big_integer::is_zero() const {
@@ -38,7 +39,7 @@ void big_integer::swap(big_integer &other) noexcept {
 }
 
 
-ui big_integer::get_digit(size_t ind) const {
+ull big_integer::get_digit(size_t ind) const {
     if (ind < length()) {
         return data[ind];
     } else if (sign) {
@@ -55,7 +56,7 @@ void big_integer::make_fit() {
     }
 }
 
-big_integer::big_integer(bool new_sign, vector<ui> const &new_data) : sign(new_sign), data(new_data) {
+big_integer::big_integer(bool new_sign, vector<ull> const &new_data) : sign(new_sign), data(new_data) {
     make_fit();
 }
 
@@ -66,17 +67,17 @@ big_integer::big_integer(big_integer const &other) : sign(other.sign), data(othe
 }
 
 big_integer::big_integer(int a) : sign(a < 0), data(1) {
-    data[0] = ui_cast(a);
+    data[0] = ull_cast(a);
     make_fit();
 }
 
-big_integer::big_integer(ui a) : sign(0), data(1) {
-    data[0] = a;
+big_integer::big_integer(ull a) : sign(0), data(1) {
+    data[0] = ull_cast(a);
     make_fit();
 }
 
-int string_to_int(std::string const &s) {
-    int ans = 0;
+ull string_to_int(std::string const &s) {
+    ull ans = 0;
     for (auto a : s) {
         if (a < '0' || a > '9') {
             throw std::runtime_error("Incorrect char");
@@ -86,8 +87,8 @@ int string_to_int(std::string const &s) {
     return ans;
 }
 
-int pow_dec(ui st) {
-    int res = 1;
+ull pow_dec(ui st) {
+    ull res = 1;
     for (ui i = 0; i < st; ++i) {
         res *= 10;
     }
@@ -100,10 +101,10 @@ big_integer string_to_number(std::string const &s) {
     if (s[beg] == '-') {
         ++beg;
     }
-    for (size_t i = beg; i + 9 <= s.length(); i += 9) {
-        res = res * BASE_10 + string_to_int(s.substr(i, 9));
+    for (size_t i = beg; i + 18 <= s.length(); i += 18) {
+        res = res * BASE_10 + string_to_int(s.substr(i, 18));
     }
-    ui mod = (s.length() - beg) % 9;
+    ui mod = (s.length() - beg) % 18;
     if (mod > 0) {
         res = res * pow_dec(mod) + string_to_int(s.substr(s.length() - mod, mod));
     }
@@ -173,11 +174,11 @@ big_integer big_integer::operator+() const {
 }
 
 big_integer big_integer::operator-() const {
-    return ~(*this) + 1U;
+    return ~(*this) + 1ULL;
 }
 
 big_integer big_integer::operator~() const {
-    vector<ui> tmp(data);
+    vector<ull> tmp(data);
     for (size_t i = 0; i < data.size(); ++i) {
         tmp[i] = ~data[i];
     }
@@ -208,17 +209,17 @@ big_integer big_integer::operator--(int) {
 
 big_integer operator+(big_integer const &a, big_integer const &b) {
     size_t n = std::max(a.length(), b.length()) + 1;
-    vector<ui> tmp(n);
-    ull c = 0;
-    ull sum = 0;
+    vector<ull> tmp(n);
+    ui128 c = 0;
+    ui128 sum = 0;
 
     for (size_t i = 0; i < n; ++i) {
         sum = c + a.get_digit(i) + b.get_digit(i);
-        tmp[i] = ui_cast(sum);
+        tmp[i] = ull_cast(sum);
         c = sum >> BASE;
     }
 
-    return big_integer(tmp.back() & (1 << (BASE - 1)), tmp);
+    return big_integer(tmp.back() & (1ll << (BASE - 1)), tmp);
 }
 
 big_integer operator-(big_integer const &a, big_integer const &b) {
@@ -226,20 +227,20 @@ big_integer operator-(big_integer const &a, big_integer const &b) {
 
 }
 
-void mul_vector(vector<ui> &res, vector<ui> const &a, vector<ui> const &b) {
+void mul_vector(vector<ull> &res, vector<ull> const &a, vector<ull> const &b) {
     for (size_t i = 0; i < a.size(); ++i) {
-        ull c = 0;
-        ull mul = 0;
-        ull tmp = 0;
+        ui128 c = 0;
+        ui128 mul = 0;
+        ui128 tmp = 0;
 
         for (size_t j = 0; j < b.size(); ++j) {
             size_t k = i + j;
-            mul = (ull) a[i] * b[j];
+            mul = (ui128) a[i] * b[j];
             tmp = (mul & MAX_DIGIT) + res[k] + c;
-            res[k] = ui_cast(tmp);
+            res[k] = ull_cast(tmp);
             c = (mul >> BASE) + (tmp >> BASE);
         }
-        res[i + b.size()] += ui_cast(c);
+        res[i + b.size()] += ull_cast(c);
     }
 }
 
@@ -252,29 +253,29 @@ void big_integer::correct() {
     }
 
     size_t n = length();
-    ull sum = ull_cast(~data[0]) + 1ULL;
-    ull carry = sum >> BASE;
-    data[0] = ui_cast(sum);
+    ui128 sum = ui128(~data[0]) + 1ULL;
+    ui128 carry = sum >> BASE;
+    data[0] = ull_cast(sum);
     for (size_t i = 1; i < n; ++i) {
-        sum = carry + ull_cast(~data[i]);
-        data[i] = ui_cast(sum);
+        sum = carry + __int128_cast(~data[i]);
+        data[i] = __int128_cast(sum);
         carry = sum >> BASE;
     }
-    data.push_back(ui_cast(carry + MAX_DIGIT));
+    data.push_back(__int128_cast(carry + MAX_DIGIT));
     make_fit();
 }
 
 big_integer operator*(big_integer const &a, big_integer const &b) {
 
     if (a.is_zero() || b.is_zero()) {
-        return big_integer(0u);
+        return big_integer(0ull);
     }
 
     big_integer abs_a(a.abs());
     big_integer abs_b(b.abs());
 
     size_t len = (abs_a.length() + abs_b.length() + 1);
-    vector<ui> tmp(len);
+    vector<ull> tmp(len);
     mul_vector(tmp, abs_a.data, abs_b.data);
 
     big_integer res(a.sign ^ b.sign, tmp);
@@ -282,40 +283,40 @@ big_integer operator*(big_integer const &a, big_integer const &b) {
     return res;
 }
 
-ui get_trial(const ui a, const ui b, const ui c) {
-    ull res = a;
+ull get_trial(const ull a, const ull b, const ull c) {
+    ui128 res = a;
     res = ((res << BASE) + b) / c;
     if (res > MAX_DIGIT) {
         res = MAX_DIGIT;
     }
-    return ui_cast(res);
+    return ull_cast(res);
 }
 
-void mul_big_small(vector<ui> &res, vector<ui> const &a, const ui b) {
+void mul_big_small(vector<ull> &res, vector<ull> const &a, const ull b) {
     size_t n = a.size();
     res.resize(n + 1);
-    ull carry = 0, mul = 0, tmp = 0;
+    ui128 carry = 0, mul = 0, tmp = 0;
     for (size_t i = 0; i < n; ++i) {
-        mul = (ull) a[i] * b;
+        mul = (ui128) a[i] * b;
         tmp = (mul & MAX_DIGIT) + carry;
-        res[i] = ui_cast(tmp);
+        res[i] = ull_cast(tmp);
         carry = (mul >> BASE) + (tmp >> BASE);
     }
-    res[n] = ui_cast(carry);
+    res[n] = ull_cast(carry);
 }
 
-void sub_equal_vectors(vector<ui> &a, vector<ui> const &b) {
-    ull sum = ull_cast(~b[0]) + ull_cast(a[0]) + 1LL;
-    ull carry = sum >> BASE;
-    a[0] = ui_cast(sum);
+void sub_equal_vectors(vector<ull> &a, vector<ull> const &b) {
+    ui128 sum = __int128_cast(~b[0]) + __int128_cast(a[0]) + 1;
+    ui128 carry = sum >> BASE;
+    a[0] = ull_cast(sum);
     for (size_t i = 1; i < b.size(); ++i) {
-        sum = ull_cast(~b[i]) + ull_cast(a[i]) + carry;
-        a[i] = ui_cast(sum);
+        sum = __int128_cast(~b[i]) + __int128_cast(a[i]) + carry;
+        a[i] = ull_cast(sum);
         carry = sum >> BASE;
     }
 }
 
-bool compare_equal_vectors(vector<ui> const &a, vector<ui> const &b) {
+bool compare_equal_vectors(vector<ull> const &a, vector<ull> const &b) {
     for (size_t i = a.size(); i > 0; --i) {
         if (a[i - 1] != b[i - 1]) {
             return a[i - 1] < b[i - 1];
@@ -334,7 +335,7 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
         return 0;
     }
 
-    const ui f = ui_cast(((ull) MAX_DIGIT + 1) / ((ull) abs_b.data.back() + 1));
+    const ull f = ull_cast(((ui128) MAX_DIGIT + 1) / ((ui128) abs_b.data.back() + 1));
     const size_t n = abs_a.length();
     const size_t m = abs_b.length();
     mul_big_small(abs_a.data, abs_a.data, f);
@@ -343,17 +344,17 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
     abs_b.make_fit();
 
     const size_t len = n - m + 1;
-    const ui divisor = abs_b.data.back();
-    vector<ui> tmp(len);
-    vector<ui> dev(m + 1);
-    vector<ui> div(m + 1, 0);
+    const ull divisor = abs_b.data.back();
+    vector<ull> tmp(len);
+    vector<ull> dev(m + 1);
+    vector<ull> div(m + 1, 0);
     for (size_t i = 0; i <= m; ++i) {
         dev[i] = abs_a.get_digit(n + i - m);
     }
 
     for (size_t i = 0; i < len; ++i) {
         dev[0] = abs_a.get_digit(n - m - i);
-        ui qt = get_trial(dev[m], dev[m - 1], divisor);
+        ull qt = get_trial(dev[m], dev[m - 1], divisor);
         mul_big_small(div, abs_b.data, qt);
         while ((qt >= 0) && compare_equal_vectors(dev, div)) {
             mul_big_small(div, abs_b.data, --qt);
@@ -376,7 +377,7 @@ big_integer operator%(big_integer const &a, big_integer const &b) {
 
 big_integer operator&(big_integer const &a, big_integer const &b) {
     size_t n = std::max(a.length(), b.length());
-    vector<ui> tmp(n);
+    vector<ull> tmp(n);
 
     for (size_t i = 0; i < n; ++i) {
         tmp[i] = a.get_digit(i) & b.get_digit(i);
@@ -386,7 +387,7 @@ big_integer operator&(big_integer const &a, big_integer const &b) {
 
 big_integer operator|(big_integer const &a, big_integer const &b) {
     size_t n = std::max(a.length(), b.length());
-    vector<ui> tmp(n);
+    vector<ull> tmp(n);
 
     for (size_t i = 0; i < n; ++i) {
         tmp[i] = a.get_digit(i) | b.get_digit(i);
@@ -396,7 +397,7 @@ big_integer operator|(big_integer const &a, big_integer const &b) {
 
 big_integer operator^(big_integer const &a, big_integer const &b) {
     size_t n = std::max(a.length(), b.length());
-    vector<ui> tmp(n);
+    vector<ull> tmp(n);
 
     for (size_t i = 0; i < n; ++i) {
         tmp[i] = a.get_digit(i) ^ b.get_digit(i);
@@ -404,25 +405,25 @@ big_integer operator^(big_integer const &a, big_integer const &b) {
     return big_integer(a.sign ^ b.sign, tmp);
 }
 
-big_integer operator<<(big_integer const &a, ui b) {
+big_integer operator<<(big_integer const &a, ull b) {
     if (b == 0) {
         return big_integer(a);
     }
     size_t div = b / BASE;
     size_t mod = b % BASE;
     size_t new_size = a.length() + div + 1;
-    vector<ui> tmp(new_size);
-    tmp[div] = ui_cast((ull) a.get_digit(0) << mod);
+    vector<ull> tmp(new_size);
+    tmp[div] = ull_cast((ui128) a.get_digit(0) << mod);
 
     for (size_t i = div + 1; i < new_size; ++i) {
-        ull x = (ull) a.get_digit(i - div) << mod;
-        ull y = (ull) a.get_digit(i - div - 1) >> (BASE - mod);
-        tmp[i] = ui_cast(x + y);
+        ui128 x = (ui128) a.get_digit(i - div) << mod;
+        ui128 y = (ui128) a.get_digit(i - div - 1) >> (BASE - mod);
+        tmp[i] = ull_cast(x + y);
     }
     return big_integer(a.sign, tmp);
 }
 
-big_integer operator>>(big_integer const &a, ui b) {
+big_integer operator>>(big_integer const &a, ull b) {
     if (b == 0) {
         return big_integer(a);
     }
@@ -432,11 +433,11 @@ big_integer operator>>(big_integer const &a, ui b) {
     if (div < a.length()) {
         new_size = a.length() - div;
     }
-    vector<ui> tmp(new_size);
+    vector<ull> tmp(new_size);
     for (size_t i = 0; i < new_size; ++i) {
-        ull x = (ull) a.get_digit(i + div) >> mod;
-        ull y = (ull) a.get_digit(i + div + 1) << (BASE - mod);
-        tmp[i] = ui_cast(x + y);
+        ui128 x = (ui128) a.get_digit(i + div) >> mod;
+        ui128 y = (ui128) a.get_digit(i + div + 1) << (BASE - mod);
+        tmp[i] = ull_cast(x + y);
     }
     return big_integer(a.sign, tmp);
 }
@@ -488,8 +489,8 @@ std::string to_string(big_integer const &a) {
     big_integer abs_a(a.abs());
 
     while (!abs_a.is_zero()) {
-        ui tmp = (abs_a % BASE_10).get_digit(0);
-        for (size_t i = 0; i < 9; i++) {
+        ull tmp = (abs_a % BASE_10).get_digit(0);
+        for (size_t i = 0; i < 18; i++) {
             ans.push_back('0' + tmp % 10);
             tmp /= 10;
         }

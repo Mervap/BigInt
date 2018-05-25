@@ -290,17 +290,9 @@ bool compare_equal_vectors(vector<ull> const &a, vector<ull> const &b) {
             return a[i - 1] < b[i - 1];
         }
     }
-    return 0;
+    return false;
 }
 
-bool compare_not_equal_vectors(vector<ull> const &a, vector<ull> const &b) {
-    for (size_t i = a.size(); i > 0; --i) {
-        if (a[i - 1] != b[i - 1]) {
-            return a[i - 1] < b[i - 1];
-        }
-    }
-    return 1;
-}
 
 void mul_big_small(vector<ull> &res, vector<ull> const &a, const ull b) {
     size_t n = a.size();
@@ -315,36 +307,87 @@ void mul_big_small(vector<ull> &res, vector<ull> const &a, const ull b) {
     res[n] = ull_cast(carry);
 }
 
-ull get_trial(const ull a1, const ull a2, const ull a3, const ull b1, const ull b2) {
-    vector<ull> a = {ull_cast(a3), ull_cast(a2), ull_cast(a1)};
-    vector<ull> b = {ull_cast(b2), ull_cast(b1)};
-    vector<ull> ans;
-
-    ui128 l = 0;
-    ui128 r = (ui128) UINT64_MAX + 1;
-
-    while (r - l > 1) {
-        ui128 m = (r + l) / 2;
-        mul_big_small(ans, b, m);
-        if (compare_not_equal_vectors(ans, a)) {
-            l = m;
-        } else {
-            r = m;
-        }
-    }
-
-    return ull_cast(l);
-}
-
 void sub_equal_vectors(vector<ull> &a, vector<ull> const &b) {
     ui128 sum = __int128_cast(~b[0]) + __int128_cast(a[0]) + 1;
     ui128 carry = sum >> BASE;
     a[0] = ull_cast(sum);
-    for (size_t i = 1; i < b.size(); ++i) {
+    for (size_t i = 1; i < a.size(); ++i) {
         sum = __int128_cast(~b[i]) + __int128_cast(a[i]) + carry;
         a[i] = ull_cast(sum);
         carry = sum >> BASE;
     }
+}
+
+ull get_trial(const ull a, const ull b, const ull c) {
+    ui128 res = a;
+    res = ((res << BASE) + b) / c;
+    if (res > MAX_DIGIT) {
+        res = MAX_DIGIT;
+    }
+    return ull_cast(res);
+}
+
+vector<ull> divide_vectors(vector<ull> a, vector<ull> &b) {
+    const ull f = ull_cast(((ui128) MAX_DIGIT + 1) / ((ui128) b.back() + 1));
+    mul_big_small(a, a, f);
+    mul_big_small(b, b, f);
+
+    ull divisor = b.back();
+    while (divisor == 0) {
+        b.erase(b.end() - 1);
+        divisor = b.back();
+    }
+
+    size_t n = a.size();
+    size_t m = b.size();
+
+    size_t len = n - m + 1;
+    vector<ull> tmp(len);
+    vector<ull> dev(m + 1);
+    vector<ull> div(m + 1, 0);
+    for (size_t i = 0; i < m; ++i) {
+        dev[i] = a[n + i - m];
+    }
+
+    for (size_t i = 0; i < len; ++i) {
+        dev[0] = a[n - m - i];
+        ull qt = get_trial(dev[m], dev[m - 1], divisor);
+        mul_big_small(div, b, qt);
+        while ((qt >= 0) && compare_equal_vectors(dev, div)) {
+            mul_big_small(div, b, --qt);
+        }
+        sub_equal_vectors(dev, div);
+        for (size_t j = m; j > 0; --j) {
+            dev[j] = dev[j - 1];
+        }
+        tmp[len - 1 - i] = qt;
+    }
+
+    return tmp;
+}
+
+void shr(vector<ull> &a, ull b) {
+    if (b == 0) {
+        return;
+    }
+
+    size_t div = b / BASE;
+    size_t mod = b % BASE;
+    size_t new_size = 0;
+    if (div < a.size()) {
+        new_size = a.size() - div;
+    }
+
+    vector<ull> tmp(new_size);
+    for (size_t i = 0; i < new_size; ++i) {
+        ui128 x = (ui128) a[i + div] >> mod;
+        ui128 y = 0;
+        if (i + div + 1 < a.size()) {
+            y = (ui128) a[i + div + 1] << (BASE - mod);
+        }
+        tmp[i] = ull_cast(x + y);
+    }
+    a = tmp;
 }
 
 big_integer operator/(big_integer const &a, big_integer const &b) {
@@ -358,45 +401,55 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
     }
 
     const ull f = ull_cast(((ui128) MAX_DIGIT + 1) / ((ui128) abs_b.data.back() + 1));
-    const size_t n = abs_a.length();
-    const size_t m = abs_b.length();
     mul_big_small(abs_a.data, abs_a.data, f);
     mul_big_small(abs_b.data, abs_b.data, f);
     abs_a.make_fit();
     abs_b.make_fit();
 
+    const size_t n = abs_a.length();
+    const size_t m = abs_b.length();
     const size_t len = n - m + 1;
-    vector<ull> divisor(2);
-
-    if (m == 1) {
-        divisor[0] = abs_b.get_digit(m - 1);
-        divisor[1] = abs_b.get_digit(m);
-    } else {
-        divisor[0] = abs_b.get_digit(m - 2);
-        divisor[1] = abs_b.get_digit(m - 1);
-    }
 
     vector<ull> tmp(len);
     vector<ull> dev(m + 2);
     vector<ull> div(m + 2, 0);
-    for (size_t i = 0; i <= m; ++i) {
+    for (size_t i = 0; i < m; ++i) {
         dev[i] = abs_a.get_digit(n + i - m);
     }
 
+    vector<ull> divisor;
+    if (m == 1) {
+        divisor.push_back(abs_b.get_digit(m - 1));
+    } else {
+        divisor.push_back(abs_b.get_digit(m - 2));
+        divisor.push_back(abs_b.get_digit(m - 1));
+    }
+
+    vector<ull> divis(divisor.size());
+    size_t N = 4 * BASE;
+    divis = divide_vectors({0, 0, 1, 0, 1}, divisor);
+
     abs_b.data.push_back(0);
+    vector<ull> tmp2(9, 0);
     for (size_t i = 0; i < len; ++i) {
         dev[0] = abs_a.get_digit(n - m - i);
+
         ull qt;
+        tmp2.resize(9);
         if (m == 1) {
-            qt = get_trial(0, dev[m], dev[m - 1], divisor[1], divisor[0]);
+            mul_vector(tmp2, {dev[m - 1], dev[m], 0}, divis);
         } else {
-            qt = get_trial(dev[m], dev[m - 1], dev[m - 2], divisor[1], divisor[0]);
+            mul_vector(tmp2, {dev[m - 2], dev[m - 1], dev[m]}, divis);
         }
+        shr(tmp2, N);
+        qt = tmp2[0];
 
         mul_big_small(div, abs_b.data, qt);
-        if ((qt >= 0) && compare_equal_vectors(dev, div)) {
+        if (compare_equal_vectors(dev, div)) {
             --qt;
+            mul_big_small(div, abs_b.data, qt);
         }
+
         sub_equal_vectors(dev, div);
         for (size_t j = m; j > 0; --j) {
             dev[j] = dev[j - 1];

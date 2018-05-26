@@ -327,7 +327,7 @@ ull get_trial(const ull a, const ull b, const ull c) {
     return ull_cast(res);
 }
 
-vector<ull> divide_vectors(vector<ull> a, vector<ull> &b) {
+void constant_div(vector<ull> &res, vector<ull> a, vector<ull> &b) {
     const ull f = ull_cast(((ui128) MAX_DIGIT + 1) / ((ui128) b.back() + 1));
     mul_big_small(a, a, f);
     mul_big_small(b, b, f);
@@ -342,7 +342,7 @@ vector<ull> divide_vectors(vector<ull> a, vector<ull> &b) {
     size_t m = b.size();
 
     size_t len = n - m + 1;
-    vector<ull> tmp(len);
+    res.resize(len);
     vector<ull> dev(m + 1);
     vector<ull> div(m + 1, 0);
     for (size_t i = 0; i < m; ++i) {
@@ -360,10 +360,8 @@ vector<ull> divide_vectors(vector<ull> a, vector<ull> &b) {
         for (size_t j = m; j > 0; --j) {
             dev[j] = dev[j - 1];
         }
-        tmp[len - 1 - i] = qt;
+        res[len - 1 - i] = qt;
     }
-
-    return tmp;
 }
 
 void shr(vector<ull> &a, ull b) {
@@ -378,7 +376,7 @@ void shr(vector<ull> &a, ull b) {
         new_size = a.size() - div;
     }
 
-    vector<ull> tmp(new_size);
+    vector<ull> tmp(a.size());
     for (size_t i = 0; i < new_size; ++i) {
         ui128 x = (ui128) a[i + div] >> mod;
         ui128 y = 0;
@@ -418,6 +416,7 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
     }
 
     vector<ull> divisor;
+    vector<ull> divis;
     if (m == 1) {
         divisor.push_back(abs_b.get_digit(m - 1));
     } else {
@@ -425,17 +424,15 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
         divisor.push_back(abs_b.get_digit(m - 1));
     }
 
-    vector<ull> divis(divisor.size());
     size_t N = 4 * BASE;
-    divis = divide_vectors({0, 0, 1, 0, 1}, divisor);
+    constant_div(divis, {0, 0, 1, 0, 1}, divisor);
 
     abs_b.data.push_back(0);
-    vector<ull> tmp2(9, 0);
+    vector<ull> tmp2(8, 0);
     for (size_t i = 0; i < len; ++i) {
         dev[0] = abs_a.get_digit(n - m - i);
 
         ull qt;
-        tmp2.resize(9);
         if (m == 1) {
             mul_vector(tmp2, {dev[m - 1], dev[m], 0}, divis);
         } else {
@@ -445,10 +442,10 @@ big_integer operator/(big_integer const &a, big_integer const &b) {
         qt = tmp2[0];
 
         mul_big_small(div, abs_b.data, qt);
-        if (compare_equal_vectors(dev, div)) {
+        /*if (compare_equal_vectors(dev, div)) {
             --qt;
             mul_big_small(div, abs_b.data, qt);
-        }
+        }*/
 
         sub_equal_vectors(dev, div);
         for (size_t j = m; j > 0; --j) {
